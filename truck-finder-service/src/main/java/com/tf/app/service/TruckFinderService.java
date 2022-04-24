@@ -1,4 +1,4 @@
-package com.tf.truckfinderservice.service;
+package com.tf.app.service;
 
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
