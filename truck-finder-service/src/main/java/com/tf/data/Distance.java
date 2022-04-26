@@ -18,4 +18,9 @@ public class Distance {
         return distance;
     }
 
+    @Override
+    public String toString() {
+        return "Distance Object [locationId=" + locationId + ", distance=" + distance + "]";
+    }
+
 }
