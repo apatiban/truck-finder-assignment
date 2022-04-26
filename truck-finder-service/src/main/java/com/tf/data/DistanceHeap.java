@@ -16,7 +16,7 @@ public class DistanceHeap {
             throw new IllegalStateException();
         items[count++] = distance;
         var index = count - 1;
-        while (index > 0 && items[index].getDistance() > items[parent(index)].getDistance()) {
+        while (index > 0 && items[index].getDistance() < items[parent(index)].getDistance()) {
             // swap the items
             swap(index, parent(index));
             index = parent(index);
@@ -50,9 +50,9 @@ public class DistanceHeap {
         if (!hasLeftChild(index))
             return true;
         if (!hasRightChild(index))
-            return items[index].getDistance() >= leftChildDistance(index);
-        return items[index].getDistance() >= leftChildDistance(index)
-                && items[index].getDistance() >= rightChildDistance(index);
+            return items[index].getDistance() <= leftChildDistance(index);
+        return items[index].getDistance() <= leftChildDistance(index)
+                && items[index].getDistance() <= rightChildDistance(index);
     }
 
     private int largerChildIndex(int index) {
