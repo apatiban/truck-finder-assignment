@@ -9,11 +9,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.tf.app.util.Utils;
 import com.tf.data.Distance;
 import com.tf.data.DistanceCalculator;
 import com.tf.data.DistanceHeap;
+import com.tf.data.Truck;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,6 +60,34 @@ public class TruckFinderService {
     public List<Distance> getTruckResults() {
         DistanceHeap heap = buildHeap(getInputStream());
         return getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
+    }
+
+    public List<Truck> getTrucks() {
+        DistanceHeap heap = buildHeap(getInputStream());
+        List<Distance> truckDistanceList = getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
+        return truckDistanceList.stream().map(e -> parseTruckData(dataMap.get(e.getLocationId()), e.getDistance()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Could use some parser here. But given the Time constraint just taking the
+     * required data.
+     * 
+     * @param truckDetails
+     * @return
+     */
+    private Truck parseTruckData(String[] truckDetails, Double distance) {
+        Truck truck = new Truck();
+        truck.setLocationId(truckDetails[0]);
+        truck.setLocationDesc(truckDetails[4]);
+        truck.setAddress(truckDetails[5]);
+        truck.setFoodItem(truckDetails[11]);
+        truck.setSchedule(truckDetails[11]);
+        truck.setDayHours(truckDetails[17]);
+        truck.setLocation(truckDetails[23]);
+        truck.setZipCode(truckDetails[27]);
+        truck.setDistance(distance);
+        return truck;
     }
 
     private String getFileName() {

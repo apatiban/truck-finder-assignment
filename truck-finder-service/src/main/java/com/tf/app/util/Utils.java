@@ -31,4 +31,14 @@ public class Utils {
             return 0.0;
         }
     }
+
+    public static Long getLong(String value) {
+        if (null == value || value.isEmpty())
+            return 0L;
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
 }

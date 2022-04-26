@@ -20,6 +20,7 @@ import com.tf.app.util.Utils;
 import com.tf.data.Distance;
 import com.tf.data.DistanceCalculator;
 import com.tf.data.DistanceHeap;
+import com.tf.data.Truck;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -52,13 +53,13 @@ public class TruckFinderApi {
     // Longitude - 15 Index
 
     @GetMapping("/trucks")
-    public ResponseEntity<List<Distance>> getNearestTrucksbyPoints(@RequestParam Double latitude,
+    public ResponseEntity<List<Truck>> getNearestTrucksbyPoints(@RequestParam Double latitude,
             @RequestParam Double longitude) {
         // List<Distance> list = truckFinderService.getNeartestTrucks(latitude,
         // longitude);
         truckFinderService.setInputLatitude(latitude);
         truckFinderService.setInputLongtitude(longitude);
-        List<Distance> list = truckFinderService.getTruckResults();
+        List<Truck> list = truckFinderService.getTrucks();
         return ResponseEntity.ok(list);
     }
 
