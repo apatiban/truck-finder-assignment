@@ -1,8 +1,8 @@
-package com.tf.data;
+package com.tf.entity;
 
 import java.text.DecimalFormat;
 
-import com.tf.app.util.Utils;
+import com.tf.util.Utils;
 
 public class Truck {
 
@@ -129,5 +129,12 @@ public class Truck {
      * private Long cnn;
      * private String applicant;
      */
+
+    @Override
+    public String toString() {
+        return "[address=" + address + ", dayHours=" + dayHours + ", distance=" + distance + ", foodItem="
+                + foodItem + ", location=" + location + ", locationDesc=" + locationDesc + ", locationId=" + locationId
+                + ", schedule=" + schedule + ", zipCode=" + zipCode + "]";
+    }
 
 }

@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.tf.app.exception.DataParserException;
+import com.tf.app.exception.TruckRepoNotFoundException;
 import com.tf.app.util.Utils;
 import com.tf.data.Distance;
 import com.tf.data.DistanceCalculator;
@@ -32,6 +34,7 @@ public class TruckFinderService {
     private static final Logger logger = LoggerFactory.getLogger(TruckFinderService.class);
 
     private static final int NO_OF_TRUCK_RESULTS = 5;
+    private static final Double MAX_ALLOWED_RADIUS = 20.00; // Assuining that max within radius trucks are needed.
 
     @Value("${food.truck.data}")
     private String dataLocation;
@@ -46,23 +49,17 @@ public class TruckFinderService {
 
     private Resource getResource() {
         return resourceLoader.getResource(dataLocation);
-        /*
-         * try {
-         * InputStream input = resource.getInputStream();
-         * } catch (IOException e1) {
-         * // TODO Auto-generated catch block
-         * e1.printStackTrace();
-         * }
-         */
-
     }
 
-    public List<Distance> getTruckResults() {
-        DistanceHeap heap = buildHeap(getInputStream());
-        return getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
-    }
+    /*
+     * public List<Distance> getTruckResults() throws DataParserException,
+     * TruckRepoNotFoundException {
+     * DistanceHeap heap = buildHeap(getInputStream());
+     * return getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
+     * }
+     */
 
-    public List<Truck> getTrucks() {
+    public List<Truck> getTrucks() throws DataParserException, TruckRepoNotFoundException {
         DistanceHeap heap = buildHeap(getInputStream());
         List<Distance> truckDistanceList = getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
         return truckDistanceList.stream().map(e -> parseTruckData(dataMap.get(e.getLocationId()), e.getDistance()))
@@ -71,7 +68,7 @@ public class TruckFinderService {
 
     /**
      * Could use some parser here. But given the Time constraint just taking the
-     * required data.
+     * required data from the csv file.
      * 
      * @param truckDetails
      * @return
@@ -90,71 +87,87 @@ public class TruckFinderService {
         return truck;
     }
 
-    private String getFileName() {
+    private String getFileName() throws DataParserException {
         File f = null;
         String path = null;
         try {
             f = getResource().getFile();
             path = f.getAbsolutePath();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            throw new DataParserException();
         }
         return path;
     }
 
-    private InputStream getInputStream() {
+    private InputStream getInputStream() throws DataParserException {
         try {
             return getResource().getInputStream();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            throw new DataParserException(e);
         }
-        return null;
     }
 
-    private DistanceHeap buildHeap(InputStream in) {
-        boolean isFirst = true;
+    private DistanceHeap distanceHeapWithRoot() throws DataParserException, TruckRepoNotFoundException {
         DistanceHeap heap = null;
-        int noOflines = Utils.getNoOfLines(getFileName()).intValue();
+        int noOflines = 0;
+        try {
+            noOflines = Utils.getNoOfLines(getFileName()).intValue();
+        } catch (IOException e1) {
+            throw new DataParserException(e1);
+        }
+        if (noOflines <= 1)
+            throw new TruckRepoNotFoundException();
         heap = new DistanceHeap(noOflines);
         heap.insert(root());
+        return heap;
+    }
+
+    private DistanceHeap buildHeap(InputStream in) throws DataParserException, TruckRepoNotFoundException {
+        boolean isFirst = true;
+        DistanceHeap heap = distanceHeapWithRoot();
+        if (heap == null)
+            return null;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(getInputStream()))) {
             String line;
             Distance locationDistance = null;
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(COMMA_DELIMITER);
                 dataMap.put(values[0], values);
-                // records.add(Arrays.asList(values));
                 if (!isFirst) {
-                    Double varLat = Utils.getDouble(values[14]);
+                    Double varLat = Utils.getDouble(values[14]); // these indices[14,15] has been hard coded for now.
                     Double varLong = Utils.getDouble(values[15]);
                     if (varLat == 0.0 || varLong == 0.0)
                         continue;
                     locationDistance = new Distance(values[0], distanceFromCurrenttoTruck(values[14], values[15]));
                     heap.insert(locationDistance);
-                    // System.out.println(locationDistance);
                 }
                 isFirst = false;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataParserException(e);
         }
         return heap;
     }
 
     private List<Distance> getKValuesFromSortedHeap(DistanceHeap heap, int noofTrucks) {
         List<Distance> knearestTrucks = new ArrayList<Distance>();
+        Distance truckDistance = null;
+        if (heap == null)
+            return null;
+        noofTrucks = noofTrucks > heap.size() ? heap.size() : noofTrucks;
         int count = 0;
         while (!heap.isEmpty()) {
-
-            if (count == 0)
+            if (count == 0) {
+                // Removing the root node from the results. As this is the source point
                 heap.remove();
-            else if (count == noofTrucks + 1)
+            } else if (count == noofTrucks + 1)
                 break;
-            else
+            else {
+                truckDistance = heap.remove();
+                if (truckDistance.getDistance() > MAX_ALLOWED_RADIUS)
+                    break;
                 knearestTrucks.add(heap.remove());
-
+            }
             // System.out.println("Remove " + heap.remove());
             count++;
 

@@ -2,12 +2,11 @@ package com.tf.data;
 
 public class DistanceHeap {
 
-    private int size;
+
     private Distance[] items = null;
     private int count;
 
     public DistanceHeap(int size) {
-        this.size = size;
         items = new Distance[size];
     }
 
@@ -100,6 +99,10 @@ public class DistanceHeap {
         var temp = items[first];
         items[first] = items[second];
         items[second] = temp;
+    }
+
+    public int size() {
+        return count;
     }
 
 }
