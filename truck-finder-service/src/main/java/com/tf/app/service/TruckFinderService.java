@@ -1,10 +1,10 @@
 package com.tf.app.service;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,13 +19,12 @@ import com.tf.data.DistanceCalculator;
 import com.tf.data.DistanceHeap;
 import com.tf.data.Truck;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
 
 @Service
 public class TruckFinderService {
@@ -36,32 +35,34 @@ public class TruckFinderService {
     private static final int NO_OF_TRUCK_RESULTS = 5;
     private static final Double MAX_ALLOWED_RADIUS = 20.00; // Assuining that max within radius trucks are needed.
 
-    @Value("${food.truck.data}")
+    @Value("${truck.location.url}")
     private String dataLocation;
 
     @Autowired
     ResourceLoader resourceLoader;
 
-    private Double inputLatitude;
-    private Double inputLongtitude;
+    private Integer noOfLines;
 
-    private Map<String, String[]> dataMap = new HashMap<String, String[]>();
-
-    private Resource getResource() {
-        return resourceLoader.getResource(dataLocation);
+    public void setNoOfLines(Integer noOfLines) {
+        this.noOfLines = noOfLines;
     }
 
-    /*
-     * public List<Distance> getTruckResults() throws DataParserException,
-     * TruckRepoNotFoundException {
-     * DistanceHeap heap = buildHeap(getInputStream());
-     * return getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
-     * }
-     */
+    private Integer getNoOfLines() throws DataParserException {
+        if (null == this.noOfLines) {
+            try {
+                this.noOfLines = Utils.getNoOfLines(getFileUrl()).intValue();
+            } catch (IOException e) {
+                throw new DataParserException(e.getMessage());
+            }
+        }
+        return this.noOfLines;
+    }
 
-    public List<Truck> getTrucks() throws DataParserException, TruckRepoNotFoundException {
-        DistanceHeap heap = buildHeap(getInputStream());
-        List<Distance> truckDistanceList = getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS);
+    public List<Truck> getTrucks(Double inputLatitude, Double inputLongitude)
+            throws DataParserException, TruckRepoNotFoundException {
+        Map<String, String[]> dataMap = new HashMap<String, String[]>();
+        DistanceHeap heap = buildHeap(inputLatitude, inputLongitude, dataMap);
+        List<Distance> truckDistanceList = getKValuesFromSortedHeap(heap, NO_OF_TRUCK_RESULTS, dataMap);
         return truckDistanceList.stream().map(e -> parseTruckData(dataMap.get(e.getLocationId()), e.getDistance()))
                 .collect(Collectors.toList());
     }
@@ -87,47 +88,26 @@ public class TruckFinderService {
         return truck;
     }
 
-    private String getFileName() throws DataParserException {
-        File f = null;
-        String path = null;
-        try {
-            f = getResource().getFile();
-            path = f.getAbsolutePath();
-        } catch (IOException e) {
-            throw new DataParserException();
-        }
-        return path;
-    }
-
-    private InputStream getInputStream() throws DataParserException {
-        try {
-            return getResource().getInputStream();
-        } catch (IOException e) {
-            throw new DataParserException(e);
-        }
-    }
-
     private DistanceHeap distanceHeapWithRoot() throws DataParserException, TruckRepoNotFoundException {
         DistanceHeap heap = null;
-        int noOflines = 0;
-        try {
-            noOflines = Utils.getNoOfLines(getFileName()).intValue();
-        } catch (IOException e1) {
-            throw new DataParserException(e1);
-        }
+        Integer noOflines = 0;
+        noOflines = getNoOfLines();
         if (noOflines <= 1)
-            throw new TruckRepoNotFoundException();
+            throw new TruckRepoNotFoundException("Truck Repository not found Exception");
         heap = new DistanceHeap(noOflines);
         heap.insert(root());
         return heap;
     }
 
-    private DistanceHeap buildHeap(InputStream in) throws DataParserException, TruckRepoNotFoundException {
+    private DistanceHeap buildHeap(Double inputLatitude, Double inputLongitude,
+            Map<String, String[]> dataMap)
+            throws DataParserException, TruckRepoNotFoundException {
         boolean isFirst = true;
         DistanceHeap heap = distanceHeapWithRoot();
         if (heap == null)
             return null;
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(getInputStream()))) {
+
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(getFileUrl().openStream()))) {
             String line;
             Distance locationDistance = null;
             while ((line = br.readLine()) != null) {
@@ -138,18 +118,19 @@ public class TruckFinderService {
                     Double varLong = Utils.getDouble(values[15]);
                     if (varLat == 0.0 || varLong == 0.0)
                         continue;
-                    locationDistance = new Distance(values[0], distanceFromCurrenttoTruck(values[14], values[15]));
+                    locationDistance = new Distance(values[0],
+                            distanceFromCurrenttoTruck(inputLatitude, inputLongitude, values[14], values[15]));
                     heap.insert(locationDistance);
                 }
                 isFirst = false;
             }
         } catch (Exception e) {
-            throw new DataParserException(e);
+            throw new DataParserException(e.getMessage());
         }
         return heap;
     }
 
-    private List<Distance> getKValuesFromSortedHeap(DistanceHeap heap, int noofTrucks) {
+    private List<Distance> getKValuesFromSortedHeap(DistanceHeap heap, int noofTrucks, Map<String, String[]> dataMap) {
         List<Distance> knearestTrucks = new ArrayList<Distance>();
         Distance truckDistance = null;
         if (heap == null)
@@ -179,30 +160,19 @@ public class TruckFinderService {
         return new Distance("root", 0.0);
     }
 
-    public Double distanceFromCurrenttoTruck(String truckLatitude, String truckLongtitude) {
-        return DistanceCalculator.distanceInMiles(getInputLatitude(), getInputLongtitude(),
+    public Double distanceFromCurrenttoTruck(Double inputLatitude, Double inputLongitude, String truckLatitude,
+            String truckLongtitude) {
+        return DistanceCalculator.distanceInMiles(inputLatitude, inputLongitude,
                 Utils.getDouble(truckLatitude),
                 Utils.getDouble(truckLongtitude));
     }
 
-    public Double getInputLatitude() {
-        return inputLatitude;
-    }
-
-    public void setInputLatitude(Double inputLatitude) {
-        this.inputLatitude = inputLatitude;
-    }
-
-    public Double getInputLongtitude() {
-        return inputLongtitude;
-    }
-
-    public void setInputLongtitude(Double inputLongtitude) {
-        this.inputLongtitude = inputLongtitude;
-    }
-
-    public Map<String, String[]> getDatabMap() {
-        return dataMap;
+    private URL getFileUrl() throws DataParserException {
+        try {
+            return new URL(dataLocation);
+        } catch (MalformedURLException e) {
+            throw new DataParserException(e.getMessage());
+        }
     }
 
 }

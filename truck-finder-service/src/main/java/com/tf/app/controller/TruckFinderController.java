@@ -13,7 +13,6 @@ import com.tf.data.Truck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.error.ErrorController;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpStatus;
@@ -29,9 +28,6 @@ public class TruckFinderController implements ErrorController {
     public static final String COMMA_DELIMITER = ",";
     private static final Logger logger = LoggerFactory.getLogger(TruckFinderController.class);
     private static final String PATH = "/error";
-
-    @Value("${truck.location.data}")
-    private String templateLocation;
 
     @Autowired
     TruckFinderService truckFinderService;
@@ -49,10 +45,8 @@ public class TruckFinderController implements ErrorController {
             @RequestParam(required = true) Double longitude) {
 
         List<Truck> trucks = null;
-        truckFinderService.setInputLatitude(latitude);
-        truckFinderService.setInputLongtitude(longitude);
         try {
-            trucks = truckFinderService.getTrucks();
+            trucks = truckFinderService.getTrucks(latitude, longitude);
             if (trucks.isEmpty()) {
                 logger.info("Trucks not avaialble from the given location");
                 return ResponseEntity
@@ -62,15 +56,18 @@ public class TruckFinderController implements ErrorController {
             return ResponseEntity.ok(getTruckResponsePayload(trucks));
 
         } catch (DataParserException e) {
-            logger.error("Invalid input data + { 0 }", e.getMessage());
+            e.printStackTrace();
+            logger.error("Invalid input data {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(getErrorResponsePayload(HttpStatus.INTERNAL_SERVER_ERROR, "Invalid input data"));
         } catch (TruckRepoNotFoundException e) {
-            logger.error("Truck repository not available+ { 0 }", e.getMessage());
+            e.printStackTrace();
+            logger.error("Truck repository not available {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NO_CONTENT)
                     .body(getErrorResponsePayload(HttpStatus.NO_CONTENT, "Truck repository not available"));
         } catch (Exception e) {
-            logger.error("Unexpected Error occured + { 0 }", e.getMessage());
+            e.printStackTrace();
+            logger.error("Unexpected Error occured " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(getErrorResponsePayload(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected Error occured "));
         }

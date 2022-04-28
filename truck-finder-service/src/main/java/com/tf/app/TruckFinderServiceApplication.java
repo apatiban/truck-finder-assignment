@@ -10,4 +10,5 @@ public class TruckFinderServiceApplication {
 		SpringApplication.run(TruckFinderServiceApplication.class, args);
 	}
 
+	
 }
