@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.error.ErrorController;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,8 +31,9 @@ public class TruckFinderController implements ErrorController {
     @Autowired
     TruckFinderService truckFinderService;
 
-    @Autowired
-    ResourceLoader resourceLoader;
+    public TruckFinderController(TruckFinderService truckFinderService) {
+        this.truckFinderService = truckFinderService;
+    }
 
     // 37.805885350100986, -122.41594524663745
     // latitude - 14 Index

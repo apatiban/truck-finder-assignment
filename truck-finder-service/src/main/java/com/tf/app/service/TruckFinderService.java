@@ -47,7 +47,7 @@ public class TruckFinderService {
         this.noOfLines = noOfLines;
     }
 
-    private Integer getNoOfLines() throws DataParserException {
+    public Integer getNoOfLines() throws DataParserException {
         if (null == this.noOfLines) {
             try {
                 this.noOfLines = Utils.getNoOfLines(getFileUrl()).intValue();
@@ -138,6 +138,8 @@ public class TruckFinderService {
         noofTrucks = noofTrucks > heap.size() ? heap.size() : noofTrucks;
         int count = 0;
         while (!heap.isEmpty()) {
+            // As the data has already been soreted in ascending order from the source point
+            // removing each nodes from the root would give the results.
             if (count == 0) {
                 // Removing the root node from the results. As this is the source point
                 heap.remove();
