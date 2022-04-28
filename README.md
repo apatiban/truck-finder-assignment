@@ -1,4 +1,4 @@
-# Food trunk finder implementation. 
+# Food Trunk Finder implementation. 
     The primary focus of this project implementation is on REST end point service to find out nearby food trucks by the given co-ordinates (Latitude and Longitude). Client wrapper project has also been implemented for easy access of the End point through command line. 
 
 # End point URL
